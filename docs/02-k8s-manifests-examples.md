@@ -370,7 +370,7 @@ spec:
       targetPort: 8080
 ```
 
-## 8. frontend + Ingress
+## 8. frontend + Ingress (Ingress опционален)
 
 ```yaml
 apiVersion: apps/v1
@@ -438,6 +438,8 @@ spec:
                   number: 80
 ```
 
+> Ingress можно не использовать: для лабораторной допустим внешний доступ через `NodePort` или `LoadBalancer`.
+
 ## 9. Пример kustomization (base)
 
 ```yaml
@@ -456,5 +458,5 @@ resources:
   - message-service.yaml
   - bff.yaml
   - frontend.yaml
-  - ingress.yaml
+  # ingress.yaml (опционально)
 ```

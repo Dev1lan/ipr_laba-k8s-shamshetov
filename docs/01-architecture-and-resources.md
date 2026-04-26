@@ -18,7 +18,7 @@
 - `Namespace` - изоляция лабораторного окружения
 - `Deployment` - для `frontend`, `bff`, `user-service`, `message-service`, `postgres`, (опционально `minio`)
 - `Service` - внутренняя DNS-связность между сервисами
-- `Ingress` - внешний вход (как минимум для `frontend`)
+- `Ingress` (опционально) - внешний вход для `frontend`, если нужен домен/HTTP-маршрутизация
 - `ConfigMap` - несекретная конфигурация (порты, URL, пути)
 - `Secret` - чувствительные данные (пароли БД, ключи S3)
 - `Job` - миграции БД (`goose`)
@@ -39,7 +39,7 @@
 
 ## 3. Сетевые связи
 
-- Внешний трафик: `Ingress -> frontend`
+- Внешний трафик: `Ingress -> frontend` (опционально, можно использовать `NodePort`/`LoadBalancer`)
 - Внутренний API:
   - `frontend -> bff` (через internal URL или через same-origin proxy)
   - `bff -> user-service`
@@ -97,13 +97,5 @@
 2. Postgres Deployment/Service
 3. Job миграций
 4. Backend Deployments/Services
-5. Frontend Deployment/Service/Ingress
+5. Frontend Deployment/Service (Ingress - опционально)
 6. Проверка доступности
-
-## 7. Что показать на защите
-
-- репозиторий с `base + overlays`
-- успешный rollout всех сервисов
-- работоспособную загрузку файлов
-- различия `dev` vs `prod`
-- Argo CD со статусом `Synced/Healthy`

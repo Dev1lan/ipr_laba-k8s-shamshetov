@@ -45,8 +45,8 @@ k8s/
 2. **Ресурсы контейнеров**
    - dev: базовые requests/limits
    - prod: повышенные requests/limits
-3. **Ingress**
-   - разные host (`dev.messager.local` и `messager.example.com`)
+3. **Ingress (опционально)**
+   - если используете Ingress, должны быть разные host (`dev.messager.local` и `messager.example.com`)
 4. **nodeAffinity**
    - в prod строго включены правила из задания по affinity
 5. **Образы**
