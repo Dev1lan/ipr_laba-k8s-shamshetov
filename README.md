@@ -1,97 +1,93 @@
-# Messager
+# Лабораторная работа: Запуск микросервисного приложения в Kubernetes
 
-Микросервисный мессенджер на Go + PostgreSQL.
+## Цель
 
-## Быстрый старт (без исходников)
+Развернуть текущий проект мессенджера в Kubernetes-кластере, настроить хранение файлов через S3 CSI, организовать GitOps-деплой через Argo CD и подготовить `kustomize`-конфигурации для `dev` и `prod`.
 
-Нужен только Docker. Скачай три файла и запусти:
+## Исходные образы (Docker Hub)
 
-```bash
-# 1. Скачай файлы
-curl -O https://raw.githubusercontent.com/mablinov2704/own-messager/main/docker-compose.hub.yml
-curl -O https://raw.githubusercontent.com/mablinov2704/own-messager/main/init-db.sh
-mkdir -p user-service/migrations message-service/migrations
-curl -o user-service/migrations/001_init.sql \
-  https://raw.githubusercontent.com/mablinov2704/own-messager/main/user-service/migrations/001_init.sql
-curl -o message-service/migrations/001_init.sql \
-  https://raw.githubusercontent.com/mablinov2704/own-messager/main/message-service/migrations/001_init.sql
-curl -o message-service/migrations/002_add_file_name.sql \
-  https://raw.githubusercontent.com/mablinov2704/own-messager/main/message-service/migrations/002_add_file_name.sql
+Используйте готовые контейнерные образы:
 
-# 2. Запусти
-docker compose -f docker-compose.hub.yml up -d
-```
+- `mablinov2704/frontend:latest` - <https://hub.docker.com/r/mablinov2704/frontend>
+- `mablinov2704/bff:latest` - <https://hub.docker.com/r/mablinov2704/bff>
+- `mablinov2704/user-service:latest` - <https://hub.docker.com/r/mablinov2704/user-service>
+- `mablinov2704/message-service:latest` - <https://hub.docker.com/r/mablinov2704/message-service>
 
-Открыть браузер: **http://localhost:8080**
+Дополнительно допускается использование официальных образов:
 
-## Docker Hub образы
+- `postgres:16-alpine`
+- `ghcr.io/kukymbr/goose-docker:latest` (для миграций)
+- `minio/minio:latest` (если выбрано локальное S3-совместимое хранилище)
 
-| Образ | Платформы |
-|-------|-----------|
-| [`mablinov2704/frontend:latest`](https://hub.docker.com/r/mablinov2704/frontend) | linux/amd64, linux/arm64 |
-| [`mablinov2704/bff:latest`](https://hub.docker.com/r/mablinov2704/bff) | linux/amd64, linux/arm64 |
-| [`mablinov2704/user-service:latest`](https://hub.docker.com/r/mablinov2704/user-service) | linux/amd64, linux/arm64 |
-| [`mablinov2704/message-service:latest`](https://hub.docker.com/r/mablinov2704/message-service) | linux/amd64, linux/arm64 |
+## Что нужно сделать
 
-### Переменные окружения frontend
+1. Развернуть в Kubernetes-кластере:
+   - frontend
+   - bff
+   - user-service
+   - message-service
+   - postgres
+   - миграции для `user-service` и `message-service`
+2. Подключить S3-хранилище для загрузки файлов (из `message-service`) **через CSI-монтирование**.
+3. Настроить правила `nodeAffinity` по условиям задания.
+4. Подготовить `kustomize`-структуру для `dev` и `prod`.
+5. Настроить Argo CD для автоматического деплоя из Git-репозитория.
 
-| Переменная | По умолчанию | Описание |
-|------------|-------------|----------|
-| `BFF_URL` | `""` | Публичный URL BFF для браузера. Пусто = same-origin (nginx проксирует сам). Установите `http://your-host:8080` если frontend и BFF на разных хостах/портах. |
-| `BFF_INTERNAL_URL` | `http://bff:8080` | URL BFF внутри Docker-сети для nginx proxy_pass. |
+## Краткие требования (выжимка из `docs`)
 
-## Запуск из исходников
+- **Архитектура в кластере:** frontend, bff, user-service, message-service, postgres и миграции должны запускаться как единая рабочая система.
+- **S3 через CSI:** файловое хранилище для `message-service` подключается только через CSI-монтирование (MinIO или внешний S3-совместимый сервис).
+- **`nodeAffinity`:**
+  - `postgres` (и `minio`, если используется) размещать на `workload=system`;
+  - прикладные сервисы размещать на `workload=app`;
+  - для `message-service` обязательно: hard-условие `workload=app` + soft-предпочтение `disk=fast`.
+- **`kustomize`:**
+  - обязателен `base` и overlays `dev`/`prod`;
+  - в `dev` и `prod` должны быть осмысленные различия (реплики, ресурсы, host, affinity, теги образов).
+- **Argo CD (GitOps):**
+  - `Application` должен смотреть на ваш GitHub-репозиторий и один из overlays;
+  - автосинхронизация обязательна: `automated`, `prune`, `selfHeal`.
+- **Проверка перед сдачей:** оба overlays собираются, Pods работают, загрузка файлов работает через S3 CSI, Argo CD в состоянии `Synced/Healthy`.
 
-```bash
-git clone <repo>
-cd own-messager
-docker compose up --build
-```
+## Ограничения и требования
 
-## Архитектура
+- Изменять исходный код сервисов не нужно.
+- В рамках работы изменяются только Kubernetes/GitOps-конфигурации и инфраструктурные файлы.
+- Все артефакты должны храниться в вашем GitHub-репозитории.
+- Итоговая защита: ссылка на репозиторий с корректной структурой `kustomize` и рабочим Argo CD Application.
 
-```
-own-messager/
-├── user-service/      # Регистрация и поиск пользователей (порт 8081)
-├── message-service/   # Сообщения и файлы (порт 8082)
-├── bff/               # BFF — агрегирует API, long polling, отдаёт фронтенд (порт 8080)
-├── frontend/          # HTML/JS фронтенд
-├── docker-compose.yml       # сборка из исходников
-└── docker-compose.hub.yml   # готовые образы с Docker Hub
-```
+## Ожидаемая структура в вашем репозитории
 
-## API (через BFF, порт 8080)
+Вы можете использовать любой удобный путь, но рекомендуется структура:
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | `/api/v1/users` | Регистрация `{"name":"..."}` |
-| GET | `/api/v1/users?q=...` | Поиск пользователей |
-| GET | `/api/v1/users/:id` | Получить пользователя |
-| POST | `/api/v1/messages` | Отправить сообщение |
-| PUT | `/api/v1/messages/:id` | Изменить сообщение (только автор) |
-| DELETE | `/api/v1/messages/:id?user_id=...` | Удалить сообщение (только автор) |
-| GET | `/api/v1/messages?user_a=&user_b=` | История переписки |
-| GET | `/api/v1/conversations?user_id=` | Список диалогов с последним сообщением |
-| GET | `/api/v1/poll?user_a=&user_b=&after_id=` | Long polling новых сообщений |
-| POST | `/api/v1/files` | Загрузить файл (multipart `file`) |
-| GET | `/api/v1/files/:id` | Скачать файл |
+- `k8s/base/` - базовая конфигурация
+- `k8s/overlays/dev/` - конфигурация dev
+- `k8s/overlays/prod/` - конфигурация prod
+- `argocd/` - Argo CD Application (и при желании AppProject)
+- `docs/` - пояснения и скриншоты/результаты проверки
 
-## Разработка
+## Критерии приемки
 
-```bash
-cd user-service && make run
-cd message-service && make run
-cd bff && make run
-```
+Работа считается выполненной, если:
 
-Переменные окружения — `.env.example` в каждом сервисе.
+- все сервисы приложения доступны и корректно взаимодействуют;
+- миграции применяются штатно;
+- загрузка файлов в `message-service` работает через подключенное S3 CSI;
+- реализованы требования по `nodeAffinity`;
+- есть рабочие `kustomize`-overlay для `dev` и `prod`;
+- Argo CD автоматически синхронизирует окружение из Git;
+- в репозитории присутствуют все необходимые конфигурации и инструкция по запуску.
 
-## Миграции
+## Обязательные материалы в `docs`
 
-Применяются автоматически при `docker compose up`.
+Теория, примеры и шаблоны вынесены в папку `docs`:
 
-Ручной запуск:
-```bash
-cd user-service && make migrate DB_DSN="postgres://messager:messager@localhost:5432/messager_users?sslmode=disable"
-cd message-service && make migrate DB_DSN="postgres://messager:messager@localhost:5432/messager_messages?sslmode=disable"
-```
+- `docs/01-architecture-and-resources.md`
+- `docs/02-k8s-manifests-examples.md`
+- `docs/03-s3-csi.md`
+- `docs/04-node-affinity-task.md`
+- `docs/05-kustomize-task.md`
+- `docs/06-argocd-task.md`
+- `docs/07-checklist-and-defense.md`
+
+Ориентируйтесь на эти документы как на техническое задание и справочник.
