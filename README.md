@@ -1,120 +1,127 @@
-# Лабораторная работа: Запуск микросервисного приложения в Kubernetes
+# Kubernetes GitOps Deployment (Messenger App)
 
-## Цель
+## Описание
 
-Развернуть текущий проект мессенджера в Kubernetes-кластере, настроить хранение файлов через S3 CSI, организовать GitOps-деплой через Argo CD и подготовить `kustomize`-конфигурации для `dev` и `prod`.
+В рамках лабораторной работы развернуто микросервисное приложение мессенджера в Kubernetes с использованием:
 
-## Исходные образы (Docker Hub)
+* Kubernetes (minikube)
+* S3-хранилища через CSI (MinIO)
+* GitOps-подхода через Argo CD
+* Kustomize (base + dev/prod overlays)
 
-Используйте готовые контейнерные образы:
+---
 
-- `mablinov2704/frontend:latest` - <https://hub.docker.com/r/mablinov2704/frontend>
-- `mablinov2704/bff:latest` - <https://hub.docker.com/r/mablinov2704/bff>
-- `mablinov2704/user-service:latest` - <https://hub.docker.com/r/mablinov2704/user-service>
-- `mablinov2704/message-service:latest` - <https://hub.docker.com/r/mablinov2704/message-service>
+## Архитектура
 
-Дополнительно допускается использование официальных образов:
+В кластере развернуты сервисы:
 
-- `postgres:16-alpine`
-- `ghcr.io/kukymbr/goose-docker:latest` (для миграций)
-- `minio/minio:latest` (если выбрано локальное S3-совместимое хранилище)
+* frontend
+* bff (API gateway)
+* user-service
+* message-service
+* postgres
+* minio (S3 storage)
+* jobs миграций (users/messages)
 
-## Что нужно сделать
+---
 
-1. Развернуть в Kubernetes-кластере:
-   - frontend
-   - bff
-   - user-service
-   - message-service
-   - postgres
-   - миграции для `user-service` и `message-service`
-2. Подключить S3-хранилище для загрузки файлов (из `message-service`) **через CSI-монтирование**.
-3. Настроить правила `nodeAffinity` по условиям задания.
-4. Подготовить `kustomize`-структуру для `dev` и `prod`.
-5. Настроить Argo CD для автоматического деплоя из Git-репозитория.
+## Структура репозитория
 
-## Краткие требования (выжимка из `docs`)
+```
+k8s/
+  base/
+  overlays/
+    dev/
+    prod/
+argocd/
+docs/
+```
 
-- **Архитектура в кластере:** frontend, bff, user-service, message-service, postgres и миграции должны запускаться как единая рабочая система.
-- **S3 через CSI:** файловое хранилище для `message-service` подключается только через CSI-монтирование (MinIO или внешний S3-совместимый сервис).
-- **`nodeAffinity`:**
-  - `postgres` (и `minio`, если используется) размещать на `workload=system`;
-  - прикладные сервисы размещать на `workload=app`;
-  - для `message-service` обязательно: hard-условие `workload=app` + soft-предпочтение `disk=fast`.
-- **`kustomize`:**
-  - обязателен `base` и overlays `dev`/`prod`;
-  - в `dev` и `prod` должны быть осмысленные различия (реплики, ресурсы, host, affinity, теги образов).
-- **Argo CD (GitOps):**
-  - `Application` должен смотреть на ваш GitHub-репозиторий и один из overlays;
-  - автосинхронизация обязательна: `automated`, `prune`, `selfHeal`.
-- **Проверка перед сдачей:** оба overlays собираются, Pods работают, загрузка файлов работает через S3 CSI, Argo CD в состоянии `Synced/Healthy`.
+---
 
-## Сервисы и обязательные env-переменные
+## Запуск (локально, minikube)
 
-Ниже приведены ключевые переменные окружения, которые должны быть корректно заданы в Kubernetes-конфигурации.
+```bash
+minikube start
 
-- **`web-ui` (frontend):**
-  - `BFF_URL` - публичный URL API для браузера (может быть пустым при same-origin).
-  - `BFF_INTERNAL_URL` - внутренний адрес API-шлюза внутри кластера.
-- **`bff` (API-шлюз):**
-  - `HTTP_PORT` - порт запуска сервиса.
-  - `USER_SERVICE_URL` - внутренний URL сервиса пользователей.
-  - `MSG_SERVICE_URL` - внутренний URL сервиса сообщений.
-- **`user-service`:**
-  - `HTTP_PORT` - порт запуска сервиса.
-  - `DB_DSN` - строка подключения к БД пользователей.
-- **`message-service`:**
-  - `HTTP_PORT` - порт запуска сервиса.
-  - `DB_DSN` - строка подключения к БД сообщений.
-  - `UPLOADS_DIR` - путь до директории, смонтированной через S3 CSI.
-- **`postgres`:**
-  - `POSTGRES_USER` - пользователь БД.
-  - `POSTGRES_PASSWORD` - пароль БД.
-  - `POSTGRES_DB` - bootstrap-имя БД.
-- **`migrate-users` / `migrate-messages` (jobs миграций):**
-  - `GOOSE_DRIVER` - драйвер БД (`postgres`).
-  - `GOOSE_DBSTRING` - строка подключения к целевой БД миграций.
-  - `GOOSE_MIGRATION_DIR` - путь к SQL-миграциям в контейнере.
+kubectl apply -k k8s/overlays/dev
+```
 
-## Ограничения и требования
+Проверка:
 
-- Изменять исходный код сервисов не нужно.
-- В рамках работы изменяются только Kubernetes/GitOps-конфигурации и инфраструктурные файлы.
-- Все артефакты должны храниться в вашем GitHub-репозитории.
-- Итоговая защита: ссылка на репозиторий с корректной структурой `kustomize` и рабочим Argo CD Application.
+```bash
+kubectl get pods -n messager
+```
 
-## Ожидаемая структура в вашем репозитории
+---
 
-Вы можете использовать любой удобный путь, но рекомендуется структура:
+## Доступ к приложению
 
-- `k8s/base/` - базовая конфигурация
-- `k8s/overlays/dev/` - конфигурация dev
-- `k8s/overlays/prod/` - конфигурация prod
-- `argocd/` - Argo CD Application (и при желании AppProject)
-- `docs/` - пояснения и скриншоты/результаты проверки
+Frontend доступен через NodePort:
 
-## Критерии приемки
+```bash
+kubectl get svc -n messager
+```
 
-Работа считается выполненной, если:
+Открыть в браузере:
 
-- все сервисы приложения доступны и корректно взаимодействуют;
-- миграции применяются штатно;
-- загрузка файлов в `message-service` работает через подключенное S3 CSI;
-- реализованы требования по `nodeAffinity`;
-- есть рабочие `kustomize`-overlay для `dev` и `prod`;
-- Argo CD автоматически синхронизирует окружение из Git;
-- в репозитории присутствуют все необходимые конфигурации и инструкция по запуску.
+```
+http://localhost:30080
+```
 
-## Обязательные материалы в `docs`
+---
 
-Теория, примеры и шаблоны вынесены в папку `docs`:
+## S3 (MinIO + CSI)
 
-- `docs/01-architecture-and-resources.md`
-- `docs/02-k8s-manifests-examples.md`
-- `docs/03-s3-csi.md`
-- `docs/04-node-affinity-task.md`
-- `docs/05-kustomize-task.md`
-- `docs/06-argocd-task.md`
-- `docs/07-checklist-and-defense.md`
+* Хранилище реализовано через CSI драйвер
+* PVC: `uploads-pvc`
+* Монтируется в `/uploads` в message-service
 
-Ориентируйтесь на эти документы как на техническое задание и справочник.
+! В minikube используется ClusterIP MinIO:
+
+```
+http://<minio-cluster-ip>:9000
+```
+
+(в проде должен использоваться DNS)
+
+---
+
+## GitOps (Argo CD)
+
+Установка:
+
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f argocd/install.yaml
+```
+
+Application:
+
+```bash
+kubectl apply -f argocd/application.yaml
+```
+
+Проверка:
+
+```bash
+kubectl get app -n argocd
+```
+
+Статус должен быть:
+
+```
+Synced / Healthy
+```
+
+---
+
+## Особенности
+
+* Использован nodeAffinity:
+
+  * `workload=system` → postgres, minio
+  * `workload=app` → сервисы
+  * `message-service` → предпочтение `disk=fast`
+* В minikube используется одна нода → label переключается вручную
+
