@@ -6,7 +6,7 @@ metadata:
 stringData:
   accessKeyID: admin
   secretAccessKey: password123
-  endpoint: http://minio:9000
+  endpoint: http://10.105.232.218:9000
   region: ""
 ---
 apiVersion: v1
@@ -17,7 +17,7 @@ metadata:
 stringData:
   accessKeyID: admin
   secretAccessKey: password123
-  endpoint: http://minio:9000
+  endpoint: http://10.105.232.218:9000
   region: ""
 ---
 apiVersion: storage.k8s.io/v1
@@ -28,7 +28,7 @@ provisioner: ch.ctrox.csi.s3-driver
 parameters:
   mounter: s3fs
   bucket: uploads
-  endpoint: http://minio:9000
+  endpoint: http://10.105.232.218:9000
   region: us-east-1
   csi.storage.k8s.io/provisioner-secret-name: csi-s3-secret
   csi.storage.k8s.io/provisioner-secret-namespace: kube-system
