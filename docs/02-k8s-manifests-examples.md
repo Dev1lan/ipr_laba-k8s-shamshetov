@@ -45,7 +45,7 @@ data:
   MSG_HTTP_PORT: "8082"
   USER_SERVICE_URL: "http://user-service:8081"
   MSG_SERVICE_URL: "http://message-service:8082"
-  MSG_UPLOADS_DIR: "/app/uploads"
+  MSG_UPLOADS_DIR: "/uploads"
   POSTGRES_DB: "TODO_POSTGRES_BOOTSTRAP_DB"
   POSTGRES_HOST: "postgres"
   POSTGRES_PORT: "5432"
@@ -320,7 +320,7 @@ spec:
                   key: MSG_UPLOADS_DIR
           volumeMounts:
             - name: uploads
-              mountPath: /app/uploads
+              mountPath: /uploads
       volumes:
         - name: uploads
           persistentVolumeClaim:

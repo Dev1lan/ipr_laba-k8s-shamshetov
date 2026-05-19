@@ -41,8 +41,14 @@ docs/
 
 ## Запуск (локально, minikube)
 
+Если профиль minikube уже был создан с одной нодой, перед запуском нужно пересоздать кластер или добавить недостающие ноды.
+
 ```bash
-minikube start
+minikube start --nodes 3
+
+kubectl label node minikube workload=system --overwrite
+kubectl label node minikube-m02 workload=app --overwrite
+kubectl label node minikube-m03 workload=app disk=fast --overwrite
 
 kubectl apply -k k8s/overlays/dev
 ```
@@ -50,6 +56,7 @@ kubectl apply -k k8s/overlays/dev
 Проверка:
 
 ```bash
+kubectl get nodes --show-labels
 kubectl get pods -n messager
 ```
 
@@ -61,6 +68,7 @@ Frontend доступен через NodePort:
 
 ```bash
 kubectl get svc -n messager
+minikube service frontend -n messager --url
 ```
 
 Открыть в браузере:
@@ -77,13 +85,11 @@ http://localhost:30080
 * PVC: `uploads-pvc`
 * Монтируется в `/uploads` в message-service
 
-! В minikube используется ClusterIP MinIO:
+Внутри кластера MinIO доступен через DNS сервиса:
 
 ```
-http://<minio-cluster-ip>:9000
+http://minio.messager.svc.cluster.local:9000
 ```
-
-(в проде должен использоваться DNS)
 
 ---
 
@@ -121,9 +127,12 @@ Synced / Healthy
 * Использован nodeAffinity:
 
   * `workload=system` → postgres, minio
-  * `workload=app` → сервисы
+  * `workload=app` → frontend, bff, user-service, message-service
   * `message-service` → предпочтение `disk=fast`
-* В minikube используется одна нода → label переключается вручную
+* Для локального запуска minikube поднимается с 3 нодами:
+  * `minikube` → `workload=system`
+  * `minikube-m02` → `workload=app`
+  * `minikube-m03` → `workload=app`, `disk=fast`
 
 ## Дополнительная информация
 

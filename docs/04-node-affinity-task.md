@@ -20,10 +20,18 @@
 
 ## Пример меток узлов
 
+Для локальной проверки minikube нужно запускать с 3 нодами:
+
+Если профиль minikube уже был создан с одной нодой, перед запуском нужно пересоздать кластер или добавить недостающие ноды.
+
 ```bash
-kubectl label node <node-1> workload=system
-kubectl label node <node-2> workload=app
-kubectl label node <node-3> workload=app disk=fast
+minikube start --nodes 3
+```
+
+```bash
+kubectl label node minikube workload=system --overwrite
+kubectl label node minikube-m02 workload=app --overwrite
+kubectl label node minikube-m03 workload=app disk=fast --overwrite
 ```
 
 ## Пример `requiredDuringSchedulingIgnoredDuringExecution`

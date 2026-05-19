@@ -64,7 +64,7 @@
 
 - `HTTP_PORT=8082`
 - `DB_DSN` (в `Secret`)
-- `UPLOADS_DIR=/app/uploads`
+- `UPLOADS_DIR=/uploads`
 
 ### `frontend`
 
